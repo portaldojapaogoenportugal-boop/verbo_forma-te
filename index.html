@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Japanese Verb て-form Quiz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f5f5f9;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    .app {
+      max-width: 480px;
+      width: 100%;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin: 0 0 4px;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .kana-display {
+      font-size: 2.4rem;
+      text-align: center;
+      margin: 12px 0 8px;
+      line-height: 1.3;
+    }
+    .question-info {
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: #555;
+    }
+    .score-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      margin: 6px 0;
+      border-radius: 999px;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      background: #e0e0ff;
+      transition: background 0.1s ease;
+    }
+    .btn-primary {
+      background: #4f46e5;
+      color: #fff;
+    }
+    .btn-small {
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      width: auto;
+      display: inline-block;
+    }
+    .feedback {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      min-height: 2.3em;
+      white-space: pre-line;
+    }
+    .feedback.correct { color: #0c7a3a; }
+    .feedback.wrong { color: #b91c1c; }
+
+    .badge-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #312e81;
+    }
+    .mistake-list {
+      font-size: 0.85rem;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .mistake-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+    }
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <div class="card">
+    <h1>Verb て-form Quiz</h1>
+    <div class="subtitle">
+      10 questions per round · 3 choices · choose the correct て-form
+    </div>
+
+    <div class="question-info">
+      <div>Question: <span id="questionNumber">0</span> / 10</div>
+      <div>Round: <span id="roundCount">0</span></div>
+    </div>
+
+    <div class="score-info">
+      <div>Score: <span id="score">0</span></div>
+      <div>Streak: <span id="streak">0</span> (Max: <span id="maxStreak">0</span>)</div>
+    </div>
+
+    <div class="kana-display" id="kanaDisplay">ー</div>
+
+    <!-- 音声ボタンなし -->
+
+    <button class="btn" id="choice1"></button>
+    <button class="btn" id="choice2"></button>
+    <button class="btn" id="choice3"></button>
+
+    <div class="feedback" id="feedback"></div>
+
+    <!-- ★ 追加：次の問題ボタン（最初は非表示） -->
+    <div style="text-align:right; margin-top:4px;">
+      <button class="btn btn-small" id="nextQuestionBtn" style="display:none;">
+        次の問題
+      </button>
+    </div>
+
+    <div id="roundEnd" style="display:none; margin-top:16px;">
+      <strong>Round finished!</strong><br>
+      Correct: <span id="roundCorrect">0</span> / 10<br>
+      <button class="btn btn-primary btn-small" id="nextRoundBtn">Next round</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div><strong>Badges</strong></div>
+    <div class="badge-list" id="badgeList"></div>
+  </div>
+
+  <div class="card">
+    <div><strong>Mistakes</strong></div>
+    <div class="mistake-list" id="mistakeList"></div>
+  </div>
+
+</div>
+
+<script>
+/* ==========================
+   Verb list & metadata
+   ========================== */
+const VERB_LIST = [
+  { id: "aru", display: "ある", kana: "ある", group: "godan", en: "to exist (things)", pt: "existir / haver / ter" },
+  { id: "iru_ex", display: "いる", kana: "いる", group: "ichidan", en: "to exist (people/animals)", pt: "existir / estar / ter" },
+  { id: "iku", display: "行（い）く", kana: "いく", group: "godan", en: "to go", pt: "ir" },
+  { id: "kuru", display: "来（く）る", kana: "くる", group: "kuru", en: "to come", pt: "vir" },
+  { id: "kaeru", display: "帰（かえ）る", kana: "かえる", group: "godan", en: "to return", pt: "voltar" },
+  { id: "suru", display: "する", kana: "する", group: "suru", en: "to do", pt: "fazer" },
+
+  { id: "taberu", display: "食（た）べる", kana: "たべる", group: "ichidan", en: "to eat", pt: "comer" },
+  { id: "nomu", display: "飲（の）む", kana: "のむ", group: "godan", en: "to drink", pt: "beber" },
+  { id: "miru", display: "見（み）る", kana: "みる", group: "ichidan", en: "to see", pt: "ver" },
+  { id: "yomu", display: "読（よ）む", kana: "よむ", group: "godan", en: "to read", pt: "ler" },
+  { id: "kiku", display: "聞（き）く", kana: "きく", group: "godan", en: "to listen/ask", pt: "ouvir / perguntar" },
+  { id: "hanasu", display: "話（はな）す", kana: "はなす", group: "godan", en: "to speak", pt: "falar" },
+  { id: "iu", display: "言（い）う", kana: "いう", group: "godan", en: "to say", pt: "dizer" },
+  { id: "kaku", display: "書（か）く", kana: "かく", group: "godan", en: "to write", pt: "escrever" },
+  { id: "matsu", display: "待（ま）つ", kana: "まつ", group: "godan", en: "to wait", pt: "esperar" },
+  { id: "tsukuru", display: "作（つく）る", kana: "つくる", group: "godan", en: "to make", pt: "fazer / criar" },
+  { id: "tsukau", display: "使（つか）う", kana: "つかう", group: "godan", en: "to use", pt: "usar" },
+  { id: "au", display: "会（あ）う", kana: "あう", group: "godan", en: "to meet", pt: "encontrar" },
+
+  { id: "hajimeru", display: "始（はじ）める", kana: "はじめる", group: "ichidan", en: "to start", pt: "começar" },
+  { id: "owaru", display: "終（お）わる", kana: "おわる", group: "godan", en: "to finish", pt: "terminar" },
+  { id: "akeru", display: "開（あ）ける", kana: "あける", group: "ichidan", en: "to open", pt: "abrir" },
+  { id: "shimeru", display: "閉（し）める", kana: "しめる", group: "ichidan", en: "to close", pt: "fechar" },
+  { id: "deru", display: "出（で）る", kana: "でる", group: "ichidan", en: "to leave", pt: "sair" },
+  { id: "hairu", display: "入（はい）る", kana: "はいる", group: "godan", en: "to enter", pt: "entrar" },
+  { id: "noru", display: "乗（の）る", kana: "のる", group: "godan", en: "to ride", pt: "apanhar" },
+  { id: "oriru", display: "降（お）りる", kana: "おりる", group: "ichidan", en: "to get off", pt: "descer" },
+
+  { id: "kau", display: "買（か）う", kana: "かう", group: "godan", en: "to buy", pt: "comprar" },
+  { id: "oku", display: "置（お）く", kana: "おく", group: "godan", en: "to put", pt: "colocar" },
+  { id: "toru", display: "取（と）る", kana: "とる", group: "godan", en: "to take", pt: "tirar" },
+  { id: "tsukeru", display: "つける", kana: "つける", group: "ichidan", en: "to turn on", pt: "ligar" },
+  { id: "kesu", display: "消（け）す", kana: "けす", group: "godan", en: "to turn off", pt: "desligar" },
+  { id: "neru", display: "寝（ね）る", kana: "ねる", group: "ichidan", en: "to sleep", pt: "dormir" },
+  { id: "okiru", display: "起（お）きる", kana: "おきる", group: "ichidan", en: "to wake up", pt: "acordar" },
+  { id: "hashiru", display: "走（はし）る", kana: "はしる", group: "godan", en: "to run", pt: "correr" },
+
+  { id: "aruku", display: "歩（ある）く", kana: "あるく", group: "godan", en: "to walk", pt: "andar" },
+  { id: "oyogu", display: "泳（およ）ぐ", kana: "およぐ", group: "godan", en: "to swim", pt: "nadar" },
+  { id: "wakaru", display: "分（わ）かる", kana: "わかる", group: "godan", en: "to understand", pt: "entender" },
+  { id: "oboeru", display: "覚（おぼ）える", kana: "おぼえる", group: "ichidan", en: "to remember", pt: "memorizar" },
+  { id: "wasureru", display: "忘（わす）れる", kana: "わすれる", group: "ichidan", en: "to forget", pt: "esquecer" },
+  { id: "shiru", display: "知（し）る", kana: "しる", group: "godan", en: "to know", pt: "saber" },
+  { id: "dekiru", display: "できる", kana: "できる", group: "ichidan", en: "can", pt: "poder" },
+  { id: "motsu", display: "持（も）つ", kana: "もつ", group: "godan", en: "to hold", pt: "ter / segurar" },
+
+  { id: "sumu", display: "住（す）む", kana: "すむ", group: "godan", en: "to live", pt: "morar" },
+  { id: "hiku", display: "ひく", kana: "ひく", group: "godan", en: "to play (instrument)", pt: "tocar" },
+  { id: "utau", display: "歌（うた）う", kana: "うたう", group: "godan", en: "to sing", pt: "cantar" },
+  { id: "hataraku", display: "働（はたら）く", kana: "はたらく", group: "godan", en: "to work", pt: "trabalhar" },
+
+  { id: "benkyou_suru", display: "勉強（べんきょう）する", kana: "べんきょうする", group: "suru_compound", en: "to study", pt: "estudar" },
+  { id: "renshuu_suru", display: "練習（れんしゅう）する", kana: "れんしゅうする", group: "suru_compound", en: "to practice", pt: "praticar" },
+  { id: "kekkon_suru", display: "結婚（けっこん）する", kana: "けっこんする", group: "suru_compound", en: "to marry", pt: "casar" },
+  { id: "ryokou_suru", display: "旅行（りょこう）する", kana: "りょこうする", group: "suru_compound", en: "to travel", pt: "viajar" },
+  { id: "sanpo_suru", display: "散歩（さんぽ）する", kana: "さんぽする", group: "suru_compound", en: "to take a walk", pt: "passear" },
+
+  { id: "shawaa_abiru", display: "シャワーを浴（あ）びる", kana: "しゃわーをあびる", group: "ichidan", en: "to take a shower", pt: "tomar duche" }
+];
+
+const TOTAL_PER_ROUND = 10;
+const REVIEW_PER_ROUND = 3;
+const STORAGE_KEY = "verb_teform_quiz_state_v1";
+
+/* ==========================
+   State
+   ========================== */
+let state = {
+  learningQueue: [],
+  index: 0,
+  reviewPool: {},
+  stats: {
+    score: 0,
+    currentStreak: 0,
+    maxStreak: 0,
+    totalSeen: 0,
+    totalCorrect: 0,
+    roundsPlayed: 0,
+    badges: []
+  },
+  currentRound: {
+    questionList: [],
+    position: 0,
+    correctThisRound: 0
+  }
+};
+
+let currentQuestion = null;
+let waitingForNext = false; // ★ 回答後に「次の問題」を待っているかどうか
+
+/* ==========================
+   Utility
+   ========================== */
+function shuffle(array) {
+  const arr = array.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function getVerbById(id) {
+  return VERB_LIST.find(v => v.id === id);
+}
+
+function getRandomFromArray(arr, n) {
+  const copy = arr.slice();
+  const result = [];
+  for (let i = 0; i < n && copy.length > 0; i++) {
+    const idx = Math.floor(Math.random() * copy.length);
+    result.push(copy[idx]);
+    copy.splice(idx, 1);
+  }
+  return result;
+}
+
+/* ==========================
+   て-form generator
+   ========================== */
+function computeTeForm(v) {
+  const k = v.kana;
+  const last = k[k.length - 1];
+  const stem = k.slice(0, -1);
+
+  if (v.id === "iku") return "いって";
+  if (v.group === "kuru") return "きて";
+  if (v.group === "suru") return "して";
+
+  if (v.group === "suru_compound") {
+    return k.slice(0, -2) + "して";
+  }
+
+  if (v.group === "ichidan") return stem + "て";
+
+  switch (last) {
+    case "う":
+    case "つ":
+    case "る": return stem + "って";
+    case "む":
+    case "ぶ":
+    case "ぬ": return stem + "んで";
+    case "く": return stem + "いて";
+    case "ぐ": return stem + "いで";
+    case "す": return stem + "して";
+  }
+  return stem + "って";
+}
+
+/* ==========================
+   Wrong choices
+   ========================== */
+function generateWrongForms(v) {
+  const correct = v.te;
+  const k = v.kana;
+  const last = k[k.length - 1];
+  const stem = k.slice(0, -1);
+  const wrongs = new Set();
+
+  function add(x) {
+    if (x && x !== correct) wrongs.add(x);
+  }
+
+  if (v.id === "iku") {
+    add("いて");
+    add("いくて");
+  } else if (v.group === "kuru") {
+    add("きって");
+    add("くって");
+  } else if (v.group === "suru") {
+    add("すって");
+    add("すて");
+  } else if (v.group === "suru_compound") {
+    const base = k.slice(0, -2);
+    add(base + "すって");
+    add(base + "すて");
+  } else if (v.group === "ichidan") {
+    add(stem + "って");
+    add(stem + "んで");
+  } else {
+    switch (last) {
+      case "う":
+      case "つ":
+      case "る":
+        add(stem + "んで");
+        add(k + "て");
+        break;
+      case "む":
+      case "ぶ":
+      case "ぬ":
+        add(stem + "って");
+        add(k + "て");
+        break;
+      case "く":
+        add(stem + "って");
+        add(k + "て");
+        break;
+      case "ぐ":
+        add(stem + "んで");
+        add(k + "て");
+        break;
+      case "す":
+        add(stem + "すて");
+        add(k + "て");
+        break;
+    }
+  }
+
+  if (wrongs.size < 2) {
+    add(k + "て");
+    add(k + "で");
+  }
+
+  return getRandomFromArray([...wrongs], 2);
+}
+
+/* ==========================
+   Choices
+   ========================== */
+function generateChoices(v) {
+  const w = generateWrongForms(v);
+  return shuffle([
+    { text: v.te, correct: true },
+    { text: w[0], correct: false },
+    { text: w[1], correct: false }
+  ]);
+}
+
+/* ==========================
+   Round logic
+   ========================== */
+function initLearningQueue() {
+  state.learningQueue = shuffle(VERB_LIST.map(v => v.id));
+  state.index = 0;
+}
+
+function buildRoundQuestionList() {
+  const q = [];
+  const reviewIds = Object.keys(state.reviewPool);
+  const numReview = Math.min(REVIEW_PER_ROUND, reviewIds.length);
+  q.push(...getRandomFromArray(reviewIds, numReview));
+
+  while (q.length < TOTAL_PER_ROUND) {
+    if (state.index >= state.learningQueue.length) {
+      state.learningQueue = shuffle(VERB_LIST.map(v => v.id));
+      state.index = 0;
+    }
+    const id = state.learningQueue[state.index++];
+    if (!q.includes(id)) q.push(id);
+  }
+
+  state.currentRound.questionList = shuffle(q);
+  state.currentRound.position = 0;
+  state.currentRound.correctThisRound = 0;
+}
+
+function startNewRound() {
+  buildRoundQuestionList();
+  state.stats.roundsPlayed++;
+  state.stats.currentStreak = 0;
+  waitingForNext = false;
+  document.getElementById("nextQuestionBtn").style.display = "none";
+  saveState();
+  updateUI();
+  showNextQuestion();
+}
+
+function showNextQuestion() {
+  const nextBtn = document.getElementById("nextQuestionBtn");
+  nextBtn.style.display = "none";
+  waitingForNext = false;
+
+  if (state.currentRound.position >= TOTAL_PER_ROUND) {
+    finishRound();
+    return;
+  }
+
+  const id = state.currentRound.questionList[state.currentRound.position];
+  currentQuestion = getVerbById(id);
+
+  document.getElementById("kanaDisplay").textContent = currentQuestion.display;
+
+  const opts = generateChoices(currentQuestion);
+  ["choice1","choice2","choice3"].forEach((id,i)=>{
+    const btn = document.getElementById(id);
+    btn.textContent = opts[i].text;
+    btn.dataset.correct = opts[i].correct ? "1" : "0";
+    btn.disabled = false;
+    btn.style.background = "#e0e0ff";
+    btn.style.color = "#000";
+  });
+
+  const fb = document.getElementById("feedback");
+  fb.textContent = "";
+  fb.className = "feedback";
+
+  document.getElementById("roundEnd").style.display = "none";
+  document.getElementById("questionNumber").textContent =
+    state.currentRound.position + 1;
+
+  updateUI();
+}
+
+function finishRound() {
+  document.getElementById("roundCorrect").textContent =
+    state.currentRound.correctThisRound;
+  document.getElementById("roundEnd").style.display = "block";
+  document.getElementById("nextQuestionBtn").style.display = "none";
+  waitingForNext = false;
+
+  checkBadges();
+  renderBadges();
+}
+
+/* ==========================
+   Answer handling
+   ========================== */
+function handleChoiceClick(e) {
+  if (!currentQuestion || waitingForNext) return; // 2回押し防止
+  const btn = e.currentTarget;
+  const correct = btn.dataset.correct === "1";
+
+  ["choice1","choice2","choice3"].forEach(id=>{
+    document.getElementById(id).disabled = true;
+  });
+
+  state.stats.totalSeen++;
+
+  const fb = document.getElementById("feedback");
+  const jp = currentQuestion.display;
+  const te = currentQuestion.te;
+  const en = currentQuestion.en;
+  const pt = currentQuestion.pt;
+
+  if (correct) {
+    state.stats.totalCorrect++;
+    state.currentRound.correctThisRound++;
+    state.stats.currentStreak++;
+    const pts = 10 + Math.max(0, state.stats.currentStreak - 1);
+    state.stats.score += pts;
+    if (state.stats.currentStreak > state.stats.maxStreak)
+      state.stats.maxStreak = state.stats.currentStreak;
+
+    btn.style.background = "#22c55e";
+    btn.style.color = "#fff";
+
+    fb.textContent = `正解！「${jp}」→「${te}」\n${en}\n${pt}`;
+    fb.className = "feedback correct";
+
+    if (state.reviewPool[currentQuestion.id]) {
+      state.reviewPool[currentQuestion.id].seen++;
+      const r = state.reviewPool[currentQuestion.id];
+      if (r.seen >= 3 && r.wrongCount <= r.seen / 2) {
+        delete state.reviewPool[currentQuestion.id];
+      }
+    }
+
+  } else {
+    state.stats.currentStreak = 0;
+
+    btn.style.background = "#ef4444";
+    btn.style.color = "#fff";
+
+    fb.textContent = `Wrong… 「${jp}」は「${te}」です。\n${en}\n${pt}`;
+    fb.className = "feedback wrong";
+
+    if (!state.reviewPool[currentQuestion.id]) {
+      state.reviewPool[currentQuestion.id] = { wrongCount: 1, seen: 0 };
+    } else {
+      state.reviewPool[currentQuestion.id].wrongCount++;
+    }
+  }
+
+  saveState();
+  renderMistakes();
+
+  // ★ ここで自動で次の問題に行かず、「次の問題」ボタンを出す
+  waitingForNext = true;
+  document.getElementById("nextQuestionBtn").style.display = "inline-block";
+}
+
+/* ==========================
+   Badges
+   ========================== */
+function checkBadges() {
+  const s = state.stats;
+  if (s.totalSeen >= 10) addBadge("first10");
+  if (s.totalSeen >= 50) addBadge("fifty");
+  if (s.maxStreak >= 5) addBadge("combo5");
+  if (s.maxStreak >= 10) addBadge("combo10");
+  if (s.totalCorrect >= 100) addBadge("hundredCorrect");
+  if (state.currentRound.correctThisRound === TOTAL_PER_ROUND)
+    addBadge("perfect");
+}
+
+function addBadge(id) {
+  if (!state.stats.badges.includes(id)) {
+    state.stats.badges.push(id);
+  }
+}
+
+function renderBadges() {
+  const b = document.getElementById("badgeList");
+  b.innerHTML = "";
+  if (state.stats.badges.length === 0) {
+    b.textContent = "No badges yet!";
+    return;
+  }
+  const names = {
+    first10: "10 questions",
+    fifty: "50 questions",
+    combo5: "Combo 5",
+    combo10: "Combo 10",
+    hundredCorrect: "100 correct",
+    perfect: "Perfect round"
+  };
+  state.stats.badges.forEach(id => {
+    const d = document.createElement("div");
+    d.className = "badge";
+    d.textContent = names[id] || id;
+    b.appendChild(d);
+  });
+}
+
+/* ==========================
+   Mistake list
+   ========================== */
+function renderMistakes() {
+  const m = document.getElementById("mistakeList");
+  m.innerHTML = "";
+
+  const list = Object.entries(state.reviewPool)
+    .sort((a,b)=>b[1].wrongCount - a[1].wrongCount);
+
+  if (list.length === 0) {
+    m.textContent = "No mistakes!";
+    return;
+  }
+
+  list.forEach(([id,info])=>{
+    const v = getVerbById(id);
+    const row = document.createElement("div");
+    row.className = "mistake-item";
+    row.innerHTML = `<span>${v.display} → ${v.te}</span><span>${info.wrongCount}</span>`;
+    m.appendChild(row);
+  });
+}
+
+/* ==========================
+   Save & load
+   ========================== */
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function loadState() {
+  const s = localStorage.getItem(STORAGE_KEY);
+  if (s) {
+    const parsed = JSON.parse(s);
+    state = Object.assign(state, parsed);
+  } else {
+    initLearningQueue();
+  }
+}
+
+/* ==========================
+   UI
+   ========================== */
+function updateUI() {
+  document.getElementById("score").textContent = state.stats.score;
+  document.getElementById("streak").textContent = state.stats.currentStreak;
+  document.getElementById("maxStreak").textContent = state.stats.maxStreak;
+  document.getElementById("roundCount").textContent = state.stats.roundsPlayed;
+}
+
+/* ==========================
+   Init
+   ========================== */
+function init() {
+  VERB_LIST.forEach(v => v.te = computeTeForm(v));
+
+  loadState();
+  if (!state.learningQueue || state.learningQueue.length === 0)
+    initLearningQueue();
+
+  renderMistakes();
+  renderBadges();
+  updateUI();
+  startNewRound();
+
+  document.getElementById("choice1").onclick = handleChoiceClick;
+  document.getElementById("choice2").onclick = handleChoiceClick;
+  document.getElementById("choice3").onclick = handleChoiceClick;
+
+  document.getElementById("nextRoundBtn").onclick = startNewRound;
+
+  // ★ 追加：次の問題ボタン
+  document.getElementById("nextQuestionBtn").onclick = () => {
+    if (!waitingForNext) return;
+    state.currentRound.position++;
+    showNextQuestion();
+  };
+}
+
+window.onload = init;
+</script>
+
+</body>
+</html>
